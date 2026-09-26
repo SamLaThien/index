@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gửi Công Chúa Của Anh</title>
+    <title>Gửi Em Bé Của Anh</title>
     <style>
         body, html {
             margin: 0;
@@ -11,32 +11,38 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #050005; /* Nền đen có chút ám hồng vũ trụ */
+            background-color: #000000; /* Nền đen tuyền */
             font-family: 'Arial', sans-serif;
-            touch-action: none; /* Vô hiệu hóa hành vi cuộn mặc định trên điện thoại */
-            user-select: none; /* Chống bôi đen text */
+            touch-action: none;
+            user-select: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         canvas {
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            cursor: grab;
         }
-        canvas:active {
-            cursor: grabbing;
-        }
+        .cursor-grab { cursor: grab; }
+        .cursor-grab:active { cursor: grabbing; }
+        
         #instruction {
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            color: rgba(255, 182, 193, 0.7); /* Màu hồng nhạt */
+            color: rgba(255, 182, 193, 0.7);
             font-size: 14px;
             letter-spacing: 2px;
             pointer-events: none;
             animation: pulse 2s infinite;
             text-align: center;
             width: 100%;
+            display: none; 
         }
         @keyframes pulse {
             0% { opacity: 0.3; }
@@ -52,231 +58,357 @@
 
     <script>
         const canvas = document.getElementById('canvas');
-        // Tắt alpha để tối ưu hiệu suất vẽ nền đen
-        const ctx = canvas.getContext('2d', { alpha: false }); 
-
-        let width, height, centerX, centerY;
-
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            centerX = width / 2;
-            centerY = height / 2;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // Danh sách câu tỏ tình
-        const phrases = [
-            "I LOVE YOU, I LOVE YOU",
-            "MÃI YÊU EM, MÃI YÊU EM",
-            "YÊU CÔNG CHÚA CỦA ANH",
-            "I LOVE YOU",
-            "MÃI YÊU EM",
-            "YÊU EM BÉ CỦA ANH"
-        ];
-
-        const textCaches = [];
         
-        function preRenderText() {
-            phrases.forEach(text => {
-                const offCanvas = document.createElement('canvas');
-                const offCtx = offCanvas.getContext('2d');
-                
-                const fontSize = 80;
-                offCtx.font = `900 ${fontSize}px "Arial Black", sans-serif`;
-                
-                const metrics = offCtx.measureText(text);
-                const padding = 100; // Không gian rộng để bóng neon không bị cắt xén
-                offCanvas.width = metrics.width + padding * 2;
-                offCanvas.height = fontSize * 1.5 + padding * 2;
+        // TUNG ĐỒNG XU 4 MẶT: Quyết định 1 trong 4 hiệu ứng sẽ chạy khi F5
+        const effectChoice = Math.floor(Math.random() * 4);
 
-                offCtx.font = `900 ${fontSize}px "Arial Black", sans-serif`;
-                offCtx.textAlign = 'center';
-                offCtx.textBaseline = 'middle';
-                
-                // Cấu hình hiệu ứng Neon rực rỡ
-                offCtx.shadowBlur = 30;
-                offCtx.shadowColor = '#ff1493'; // Viền hồng đậm
-                offCtx.fillStyle = '#ffb6c1'; // Lõi hồng nhạt
-                
-                offCtx.fillText(text, offCanvas.width / 2, offCanvas.height / 2);
-                
-                textCaches.push({
-                    canvas: offCanvas,
-                    width: offCanvas.width,
-                    height: offCanvas.height
+        if (effectChoice === 0) {
+            runHeartEffect(); // Hiệu ứng 1: Trái tim Neon
+        } else if (effectChoice === 1) {
+            document.getElementById('instruction').style.display = 'block';
+            canvas.classList.add('cursor-grab');
+            run3DEffect(); // Hiệu ứng 2: Vũ trụ 3D
+        } else if (effectChoice === 2) {
+            runRainTextEffect(); // Hiệu ứng 3: Mưa chữ lấp lánh
+        } else {
+            runStarryNightEffect(); // Hiệu ứng 4: Bầu trời đầy sao và Lời tỏ tình
+        }
+
+        // ==========================================
+        // HIỆU ỨNG 1: TRÁI TIM NEON & CHỮ BAY
+        // ==========================================
+        function runHeartEffect() {
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; initPath(); });
+            let path = []; const numPoints = 400; let scale = 15;
+            function initPath() {
+                path = []; scale = Math.min(w, h) / 45; 
+                for (let i = 0; i <= numPoints; i++) {
+                    let t = (i / numPoints) * Math.PI * 2;
+                    let x = 16 * Math.pow(Math.sin(t), 3); let y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                    path.push({ x: -x * scale + w / 2, y: y * scale + h / 2 - 20 });
+                }
+            }
+            initPath();
+
+            let pathIdx = 0, isDrawing = true, waitFrames = 0;
+            let particles = [], textParticles = []; 
+            const colors = ['#ff007f', '#bc13fe', '#ffffff'];
+            const phrases = ["YÊU EM NHẤT", "YÊU E BÉ NHẤT", "NHỚ EM", "MÃI YÊU", "YÊU EM CÔNG CHÚA CỦA ANH"];
+            const drawSpeed = 3; 
+
+            function animate() {
+                ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, w, h);
+                let drawUpTo = isDrawing ? pathIdx : path.length - 1;
+                if (drawUpTo > 0) {
+                    ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+                    for (let i = 1; i <= drawUpTo; i++) ctx.lineTo(path[i].x, path[i].y);
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.strokeStyle = '#bc13fe'; ctx.lineWidth = 12; ctx.shadowBlur = 25; ctx.shadowColor = '#ff007f'; ctx.stroke();
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff'; ctx.stroke();
+                }
+                ctx.shadowBlur = 0; 
+                if (isDrawing) {
+                    for (let step = 0; step < drawSpeed; step++) {
+                        if (pathIdx >= path.length) break;
+                        let pCur = path[pathIdx], pPrev = pathIdx > 0 ? path[pathIdx - 1] : pCur;
+                        let dx = pCur.x - pPrev.x, dy = pCur.y - pPrev.y;
+                        for (let i = 0; i < 5; i++) {
+                            let angle = Math.random() * Math.PI * 2, speed = Math.random() * 3;
+                            particles.push({
+                                x: pCur.x, y: pCur.y, vx: Math.cos(angle) * speed - dx * 0.5, vy: Math.sin(angle) * speed - dy * 0.5,
+                                life: 1, decay: Math.random() * 0.02 + 0.01, size: Math.random() * 2 + 0.5, color: colors[Math.floor(Math.random() * colors.length)]
+                            });
+                        }
+                        if (Math.random() < 0.02) {
+                            textParticles.push({
+                                x: pCur.x, y: pCur.y, vx: Math.cos(Math.random() * Math.PI * 2) * 1 - dx * 0.1, vy: Math.sin(Math.random() * Math.PI * 2) * 1 - dy * 0.1 - 0.5,
+                                life: 1.5, decay: 0.008, text: phrases[Math.floor(Math.random() * phrases.length)], color: colors[Math.floor(Math.random() * colors.length)], scale: Math.random() * 0.5 + 0.5 
+                            });
+                        }
+                        pathIdx++;
+                    }
+                    if (pathIdx >= path.length) { isDrawing = false; waitFrames = 100; }
+                } else { waitFrames--; if (waitFrames <= 0) { isDrawing = true; pathIdx = 0; } }
+
+                ctx.globalCompositeOperation = 'lighter'; 
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i]; p.vx += 0.01; p.vy -= 0.02; p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+                    if (p.life <= 0) { particles.splice(i, 1); continue; }
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fill(); 
+                }
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                for (let i = textParticles.length - 1; i >= 0; i--) {
+                    let tp = textParticles[i]; tp.x += tp.vx; tp.y += tp.vy; tp.vy -= 0.01; tp.life -= tp.decay;
+                    if (tp.life <= 0) { textParticles.splice(i, 1); continue; }
+                    ctx.globalAlpha = tp.life > 1 ? 1 : tp.life; ctx.fillStyle = tp.color; ctx.font = `bold ${18 * tp.scale}px "Arial Black", sans-serif`; ctx.fillText(tp.text, tp.x, tp.y);
+                }
+                ctx.globalAlpha = 1; requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // ==========================================
+        // HIỆU ỨNG 2: CHỮ XOAY TRONG KHÔNG GIAN 3D
+        // ==========================================
+        function run3DEffect() {
+            const ctx = canvas.getContext('2d', { alpha: false }); 
+            let width, height, centerX, centerY;
+            function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; centerX = width / 2; centerY = height / 2; }
+            window.addEventListener('resize', resize); resize();
+
+            const phrases = ["I LOVE YOU", "MÃI YÊU EM", "YÊU CÔNG CHÚA CỦA ANH", "YÊU BÉ CỦA ANH"];
+            const textCaches = [];
+            function preRenderText() {
+                phrases.forEach(text => {
+                    const offCanvas = document.createElement('canvas'); const offCtx = offCanvas.getContext('2d');
+                    offCtx.font = `900 80px "Arial Black", sans-serif`; offCanvas.width = offCtx.measureText(text).width + 200; offCanvas.height = 120 + 200;
+                    offCtx.font = `900 80px "Arial Black", sans-serif`; offCtx.textAlign = 'center'; offCtx.textBaseline = 'middle';
+                    offCtx.shadowBlur = 30; offCtx.shadowColor = '#ff1493'; offCtx.fillStyle = '#ffb6c1'; offCtx.fillText(text, offCanvas.width / 2, offCanvas.height / 2);
+                    textCaches.push({ canvas: offCanvas, width: offCanvas.width, height: offCanvas.height });
                 });
-            });
-        }
-        preRenderText();
+            }
+            preRenderText();
 
-        const particles = [];
-        const numParticles = 120; 
-        const maxDepth = 4000; 
-        const focalLength = 400; 
+            const particles = []; const numParticles = 100, maxDepth = 4000, focalLength = 400; 
+            for (let i = 0; i < numParticles; i++) {
+                particles.push({
+                    x: (Math.random() - 0.5) * 6000, y: (Math.random() - 0.5) * 6000, z: Math.random() * maxDepth,     
+                    cache: textCaches[Math.floor(Math.random() * textCaches.length)], speed: Math.random() * 2 + 1.0   
+                });
+            }
 
-        // Rải đều các hạt trong không gian 3D
-        for (let i = 0; i < numParticles; i++) {
-            particles.push({
-                x: (Math.random() - 0.5) * 6000, 
-                y: (Math.random() - 0.5) * 6000, 
-                z: Math.random() * maxDepth,     
-                cache: textCaches[Math.floor(Math.random() * textCaches.length)], 
-                speed: Math.random() * 2 + 1.0   // Tốc độ rất chậm rãi và mượt
-            });
-        }
+            let cameraAngleX = 0, cameraAngleY = 0, targetAngleX = 0, targetAngleY = 0; let isDragging = false, startX = 0, startY = 0;
+            function onPointerDown(e) { isDragging = true; startX = e.clientX || e.touches[0].clientX; startY = e.clientY || e.touches[0].clientY; document.getElementById('instruction').style.display = 'none'; }
+            function onPointerMove(e) {
+                if (!isDragging) return;
+                targetAngleY += ((e.clientX || e.touches[0].clientX) - startX) * 0.002; targetAngleX += ((e.clientY || e.touches[0].clientY) - startY) * 0.002;
+                targetAngleY = Math.max(-0.6, Math.min(0.6, targetAngleY)); targetAngleX = Math.max(-0.6, Math.min(0.6, targetAngleX));
+                startX = e.clientX || e.touches[0].clientX; startY = e.clientY || e.touches[0].clientY;
+            }
+            function onPointerUp() { isDragging = false; }
+            window.addEventListener('mousedown', onPointerDown); window.addEventListener('mousemove', onPointerMove); window.addEventListener('mouseup', onPointerUp); window.addEventListener('mouseleave', onPointerUp);
+            window.addEventListener('touchstart', onPointerDown, {passive: false}); window.addEventListener('touchmove', onPointerMove, {passive: false}); window.addEventListener('touchend', onPointerUp);
 
-        // Biến lưu góc xoay camera
-        let cameraAngleX = 0;
-        let cameraAngleY = 0;
-        // Biến đích đến để camera xoay mượt mà (Lerp)
-        let targetAngleX = 0;
-        let targetAngleY = 0;
+            function animate() {
+                ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, width, height);
+                cameraAngleX = (1 - 0.05) * cameraAngleX + 0.05 * targetAngleX; cameraAngleY = (1 - 0.05) * cameraAngleY + 0.05 * targetAngleY;
+                const cosY = Math.cos(cameraAngleY), sinY = Math.sin(cameraAngleY), cosX = Math.cos(cameraAngleX), sinX = Math.sin(cameraAngleX);
 
-        let isDragging = false;
-        let startX = 0;
-        let startY = 0;
-
-        // Giới hạn góc nhìn để không quay ngược ra sau lưng (khoảng 35 độ)
-        const maxAngle = 0.6; 
-
-        function onPointerDown(e) {
-            isDragging = true;
-            startX = e.clientX || e.touches[0].clientX;
-            startY = e.clientY || e.touches[0].clientY;
-            
-            // Ẩn dòng chữ hướng dẫn khi bắt đầu vuốt
-            document.getElementById('instruction').style.display = 'none';
-        }
-
-        function onPointerMove(e) {
-            if (!isDragging) return;
-            const currentX = e.clientX || e.touches[0].clientX;
-            const currentY = e.clientY || e.touches[0].clientY;
-            
-            const dx = currentX - startX;
-            const dy = currentY - startY;
-
-            // Chuyển khoảng cách vuốt thành góc xoay
-            targetAngleY += dx * 0.002;
-            targetAngleX += dy * 0.002;
-
-            // Giới hạn không cho xoay quá xa
-            targetAngleY = Math.max(-maxAngle, Math.min(maxAngle, targetAngleY));
-            targetAngleX = Math.max(-maxAngle, Math.min(maxAngle, targetAngleX));
-
-            startX = currentX;
-            startY = currentY;
+                particles.forEach(p => {
+                    p.z -= p.speed; if (p.z <= 0) { p.z = maxDepth; p.x = (Math.random() - 0.5) * 6000; p.y = (Math.random() - 0.5) * 6000; }
+                    let x1 = p.x * cosY - p.z * sinY, z1 = p.z * cosY + p.x * sinY;
+                    p.rotatedZ = z1 * cosX + p.y * sinX; p.rotatedX = x1; p.rotatedY = p.y * cosX - z1 * sinX;
+                });
+                particles.sort((a, b) => b.rotatedZ - a.rotatedZ);
+                particles.forEach(p => {
+                    if (p.rotatedZ <= 10) return;
+                    const scale = focalLength / (focalLength + p.rotatedZ); const screenX = p.rotatedX * scale + centerX, screenY = p.rotatedY * scale + centerY;
+                    const dW = p.cache.width * scale, dH = p.cache.height * scale;
+                    if (screenX + dW / 2 > 0 && screenX - dW / 2 < width && screenY + dH / 2 > 0 && screenY - dH / 2 < height) {
+                        let opacity = (maxDepth - p.rotatedZ) / (maxDepth * 0.6); ctx.globalAlpha = opacity > 1 ? 1 : (opacity < 0 ? 0 : opacity);
+                        ctx.drawImage(p.cache.canvas, screenX - dW / 2, screenY - dH / 2, dW, dH);
+                    }
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
         }
 
-        function onPointerUp() {
-            isDragging = false;
-            // Tự động đưa góc nhìn về trung tâm khi thả tay ra (Có thể comment lại nếu muốn giữ góc nhìn)
-            // targetAngleX = 0;
-            // targetAngleY = 0;
-        }
+        // ==========================================
+        // HIỆU ỨNG 3: MƯA CHỮ LẤP LÁNH NHƯ GIỌT NƯỚC
+        // ==========================================
+        function runRainTextEffect() {
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth; let h = canvas.height = window.innerHeight;
+            window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
 
-        // Đăng ký sự kiện chuột và cảm ứng
-        window.addEventListener('mousedown', onPointerDown);
-        window.addEventListener('mousemove', onPointerMove);
-        window.addEventListener('mouseup', onPointerUp);
-        window.addEventListener('mouseleave', onPointerUp);
+            const phrases = ["YÊU EM", "NHỚ BÉ", "CÔNG CHÚA CỦA ANH", "I LOVE YOU", "MÃI YÊU"];
+            const colors = ['#ff007f', '#bc13fe', '#ffffff', '#ffb6c1']; 
+            const drops = []; const sparkles = [];
 
-        window.addEventListener('touchstart', onPointerDown, {passive: false});
-        window.addEventListener('touchmove', onPointerMove, {passive: false});
-        window.addEventListener('touchend', onPointerUp);
-
-        // Hàm Lerp giúp việc xoay camera không bị giật cục
-        function lerp(start, end, amt) {
-            return (1 - amt) * start + amt * end;
-        }
-
-        function animate() {
-            ctx.fillStyle = '#050005';
-            ctx.fillRect(0, 0, width, height);
-
-            // Cập nhật góc camera mượt mà theo target
-            cameraAngleX = lerp(cameraAngleX, targetAngleX, 0.05);
-            cameraAngleY = lerp(cameraAngleY, targetAngleY, 0.05);
-
-            // Tính toán trước Sin/Cos của góc Camera để đỡ tính lại nhiều lần
-            const cosY = Math.cos(cameraAngleY);
-            const sinY = Math.sin(cameraAngleY);
-            const cosX = Math.cos(cameraAngleX);
-            const sinX = Math.sin(cameraAngleX);
-
-            particles.forEach(p => {
-                // Di chuyển chữ về phía người xem theo trục Z thế giới
-                p.z -= p.speed;
-
-                if (p.z <= 0) {
-                    p.z = maxDepth;
-                    p.x = (Math.random() - 0.5) * 6000;
-                    p.y = (Math.random() - 0.5) * 6000;
+            class Drop {
+                constructor() { this.reset(); this.y = Math.random() * h; }
+                reset() {
+                    this.x = Math.random() * w; this.y = -50 - Math.random() * 300; this.speed = Math.random() * 3 + 2; 
+                    this.text = phrases[Math.floor(Math.random() * phrases.length)]; this.color = colors[Math.floor(Math.random() * colors.length)]; this.fontSize = Math.random() * 15 + 15;
                 }
-
-                /* Bước quan trọng: Áp dụng ma trận xoay 3D */
-                // Xoay quanh trục Y (Nhìn trái phải)
-                let x1 = p.x * cosY - p.z * sinY;
-                let z1 = p.z * cosY + p.x * sinY;
-
-                // Xoay quanh trục X (Nhìn lên xuống)
-                let y2 = p.y * cosX - z1 * sinX;
-                let z2 = z1 * cosX + p.y * sinX;
-
-                // Lưu lại z2 để lát dùng cho thuật toán sắp xếp (Painter's Algorithm)
-                p.rotatedZ = z2;
-                p.rotatedX = x1;
-                p.rotatedY = y2;
-            });
-
-            // Sắp xếp lại dựa trên chiều sâu ĐÃ XOAY (Z đã biến đổi theo camera)
-            // Chữ ở xa màn hình nhất sẽ vẽ trước, chữ ở gần đè lên sau.
-            particles.sort((a, b) => b.rotatedZ - a.rotatedZ);
-
-            particles.forEach(p => {
-                // Tránh trường hợp chia cho số âm nếu chữ lọt ra sau lưng camera
-                if (p.rotatedZ <= 10) return;
-
-                // Phép chiếu phối cảnh 3D -> 2D
-                const scale = focalLength / (focalLength + p.rotatedZ);
-                const screenX = p.rotatedX * scale + centerX;
-                const screenY = p.rotatedY * scale + centerY;
-
-                // Tính kích thước sau khi chiếu
-                const drawWidth = p.cache.width * scale;
-                const drawHeight = p.cache.height * scale;
-
-                // Kỹ thuật Culling: Bỏ qua chữ nếu nó nằm ngoài màn hình -> Tiết kiệm FPS
-                if (screenX + drawWidth / 2 > 0 && 
-                    screenX - drawWidth / 2 < width && 
-                    screenY + drawHeight / 2 > 0 && 
-                    screenY - drawHeight / 2 < height) {
-                    
-                    // Xa mờ, gần rõ (Fade in/Fade out)
-                    let opacity = (maxDepth - p.rotatedZ) / (maxDepth * 0.6);
-                    if (opacity > 1) opacity = 1;
-                    if (opacity < 0) opacity = 0;
-                    
-                    ctx.globalAlpha = opacity;
-                    
-                    // In ảnh cache (chữ) lên canvas
-                    ctx.drawImage(
-                        p.cache.canvas, 
-                        screenX - drawWidth / 2, 
-                        screenY - drawHeight / 2, 
-                        drawWidth, 
-                        drawHeight
-                    );
+                update() {
+                    this.y += this.speed; 
+                    if (Math.random() < 0.25) sparkles.push(new Sparkle(this.x, this.y - 15, this.color));
+                    if (this.y > h + 100) this.reset();
                 }
-            });
+                draw(ctx) {
+                    ctx.shadowBlur = 15; ctx.shadowColor = this.color; ctx.fillStyle = '#fff'; ctx.font = `bold ${this.fontSize}px "Arial"`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.text, this.x, this.y);
+                }
+            }
 
-            requestAnimationFrame(animate);
+            class Sparkle {
+                constructor(x, y, color) {
+                    this.x = x + (Math.random() - 0.5) * 20; this.y = y; this.size = Math.random() * 2 + 1; this.color = color;
+                    this.life = 1; this.decay = Math.random() * 0.03 + 0.01; this.vx = (Math.random() - 0.5) * 0.5; this.vy = Math.random() * -1 - 0.5; 
+                }
+                update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; }
+                draw(ctx) {
+                    ctx.globalAlpha = Math.max(0, this.life); ctx.shadowBlur = 10; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            for (let i = 0; i < 25; i++) drops.push(new Drop());
+
+            function animate() {
+                ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, w, h);
+                ctx.globalCompositeOperation = 'lighter';
+                drops.forEach(drop => { drop.update(); drop.draw(ctx); });
+                for (let i = sparkles.length - 1; i >= 0; i--) {
+                    sparkles[i].update(); sparkles[i].draw(ctx);
+                    if (sparkles[i].life <= 0) sparkles.splice(i, 1); 
+                }
+                ctx.globalAlpha = 1; requestAnimationFrame(animate);
+            }
+            animate();
         }
 
-        // Bắt đầu vòng lặp
-        animate();
+        // ==========================================
+        // HIỆU ỨNG 4: BẦU TRỜI SAO LẤP LÁNH & LỜI TỎ TÌNH
+        // ==========================================
+        function runStarryNightEffect() {
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            });
+
+            // Lớp Ngôi sao nhấp nháy
+            class Star {
+                constructor() {
+                    this.x = Math.random() * w;
+                    this.y = Math.random() * h;
+                    this.size = Math.random() * 1.5;
+                    this.alpha = Math.random();
+                    this.alphaChange = (Math.random() * 0.02 + 0.005) * (Math.random() < 0.5 ? 1 : -1);
+                }
+                update() {
+                    this.alpha += this.alphaChange;
+                    if (this.alpha <= 0) { this.alpha = 0; this.alphaChange *= -1; }
+                    if (this.alpha >= 1) { this.alpha = 1; this.alphaChange *= -1; }
+                }
+                draw(ctx) {
+                    ctx.globalAlpha = this.alpha;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Lớp Sao băng xẹt qua
+            class ShootingStar {
+                constructor() { this.reset(); }
+                reset() {
+                    this.x = Math.random() * w;
+                    this.y = Math.random() * (h / 2); // Bắt đầu ở nửa trên màn hình
+                    this.length = Math.random() * 80 + 20;
+                    this.speed = Math.random() * 10 + 6;
+                    this.angle = Math.PI / 4 + Math.random() * Math.PI / 8; // Xéo xuống góc dưới phải
+                    this.active = false;
+                    this.timer = Math.random() * 300 + 100; // Chờ 1 lúc mới xuất hiện
+                }
+                update() {
+                    if (!this.active) {
+                        this.timer--;
+                        if (this.timer <= 0) this.active = true;
+                        return;
+                    }
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    // Ra khỏi khung hình thì reset
+                    if (this.x > w + this.length || this.y > h + this.length) this.reset();
+                }
+                draw(ctx) {
+                    if (!this.active) return;
+                    ctx.globalAlpha = 1;
+                    // Tạo dốc màu Gradient cho vệt sao băng mờ dần ở đuôi
+                    let grad = ctx.createLinearGradient(this.x, this.y, this.x - Math.cos(this.angle)*this.length, this.y - Math.sin(this.angle)*this.length);
+                    grad.addColorStop(0, "rgba(255, 255, 255, 1)");
+                    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x - Math.cos(this.angle)*this.length, this.y - Math.sin(this.angle)*this.length);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = grad;
+                    ctx.stroke();
+                }
+            }
+
+            const stars = [];
+            const shootingStars = [];
+            for (let i = 0; i < 200; i++) stars.push(new Star());
+            for (let i = 0; i < 3; i++) shootingStars.push(new ShootingStar());
+
+            const confessionLines = [
+                "Gửi em, công chúa của anh...",
+                "",
+                "Bầu trời đêm nay có hàng vạn ngôi sao,",
+                "nhưng trong tim anh",
+                "chỉ có duy nhất mình em.",
+                "",
+                "Anh Yêu Em ❤️"
+            ];
+            
+            // Biến độ mờ để chữ từ từ hiện ra siêu lãng mạn
+            let textAlpha = 0; 
+            let shadowPulse = 0;
+            let pulseDir = 0.5;
+
+            function animate() {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, w, h);
+
+                // Vẽ sao tĩnh nhấp nháy
+                stars.forEach(star => { star.update(); star.draw(ctx); });
+                
+                // Vẽ sao băng xẹt ngang
+                shootingStars.forEach(ss => { ss.update(); ss.draw(ctx); });
+
+                // Vẽ lời tỏ tình trung tâm
+                if (textAlpha < 1) textAlpha += 0.003; // Fade in cực kỳ chậm rãi
+                
+                shadowPulse += pulseDir;
+                if (shadowPulse > 30 || shadowPulse < 10) pulseDir *= -1; // Nhịp đập phát sáng
+
+                ctx.globalAlpha = textAlpha;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = shadowPulse;
+                ctx.shadowColor = '#ff1493';
+                ctx.fillStyle = '#ffb6c1';
+                
+                // Cỡ chữ tự căn chỉnh theo màn hình điện thoại
+                let fontSize = Math.max(16, Math.min(w, h) * 0.045); 
+                ctx.font = `bold ${fontSize}px "Arial", sans-serif`;
+                
+                let lineHeight = fontSize * 1.5;
+                let startY = h / 2 - (confessionLines.length * lineHeight) / 2;
+                
+                confessionLines.forEach((line, i) => {
+                    ctx.fillText(line, w / 2, startY + i * lineHeight);
+                });
+
+                ctx.globalAlpha = 1;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
     </script>
 </body>
 </html>
